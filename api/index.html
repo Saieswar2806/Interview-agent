@@ -319,7 +319,6 @@
                 const modal = document.getElementById('feedback-modal');
                 const content = document.getElementById('feedback-content');
                 modal.classList.remove('hidden');
-                // Trigger reflow for animation
                 void modal.offsetWidth;
                 modal.classList.remove('opacity-0');
                 content.classList.remove('scale-95');
@@ -352,13 +351,14 @@
                     const res = await fetch('/api/interview', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ sessionId: state.sessionId, candidate: state.candidate })
+                        body: JSON.stringify({ sessionId: state.sessionId, candidateId: state.candidate.member.id, message: "INIT_INTERVIEW" })
                     });
                     const data = await res.json();
                     
-                    state.turnCount++;
+                    state.turnCount = data.turn || 1;
                     UI.updateProgress();
-                    UI.appendMessage('ai', data.reply);
+                    const replyText = data.reply || data.message || data.response || "Welcome to the technical evaluation.";
+                    UI.appendMessage('ai', replyText);
                 } catch (err) {
                     UI.appendMessage('ai', '⚠️ Connection failed. Please ensure the backend is running.');
                 } finally {
@@ -374,19 +374,18 @@
                     const res = await fetch('/api/interview', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ sessionId: state.sessionId, message: text })
+                        body: JSON.stringify({ sessionId: state.sessionId, candidateId: state.candidate ? state.candidate.member.id : "CAND-001", message: text })
                     });
                     const data = await res.json();
                     
-                    if (!data.done) {
-                        state.turnCount++;
-                        UI.updateProgress();
-                    }
+                    state.turnCount = data.turn || (state.turnCount + 1);
+                    UI.updateProgress();
                     
-                    UI.appendMessage('ai', data.reply);
+                    const replyText = data.reply || data.message || data.response || "No response received";
+                    UI.appendMessage('ai', replyText);
 
-                    if (data.done && data.feedback) {
-                        setTimeout(() => UI.showModal(data.feedback), 1000); // Slight delay for reading final msg
+                    if (data.done && data.evaluation) {
+                        setTimeout(() => UI.showModal(data.evaluation), 1000);
                     }
                 } catch (err) {
                     UI.appendMessage('ai', '⚠️ Failed to send message.');
