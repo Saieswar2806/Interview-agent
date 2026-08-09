@@ -22,5 +22,5 @@ An autonomous, adaptive AI Interview Agent built for the ABTalks AI Cohort Hacka
 
 1. **Clone the repository:**
    ```bash
-   git clone [https://github.com/saieswar.2806/interview-agent.git](https://github.com/saieswar2806/interview-agent.git)
+   git clone [https://github.com/Saieswar.2806/interview-agent.git](https://github.com/Saieswar2806/interview-agent.git)
    cd interview-agent
