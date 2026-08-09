@@ -58,6 +58,25 @@ async def interview_endpoint(req: InterviewRequest):
         turn = state.get("turn", 0)
         history = state.get("history", [])
         
+        # Handle initial session load gracefully without hitting Groq for a dummy init message
+        if req.message == "INIT_INTERVIEW" and turn == 0:
+            initial_greeting = "Hello! Let's begin your technical evaluation. Can you briefly walk me through your experience with scalable backend architectures?"
+            history.append({"role": "assistant", "content": initial_greeting})
+            turn = 1
+            state["turn"] = turn
+            state["history"] = history
+            save_session_state(session_id, state)
+            
+            return JSONResponse({
+                "reply": initial_greeting,
+                "message": initial_greeting,
+                "response": initial_greeting,
+                "turn": turn,
+                "done": False,
+                "evaluation": None
+            })
+
+        # Append standard user message
         history.append({"role": "user", "content": req.message})
         turn += 1
         
@@ -97,8 +116,8 @@ async def interview_endpoint(req: InterviewRequest):
         
         return JSONResponse({
             "reply": reply,
-            "message": reply,      # Fallback for frontend variants looking for 'message'
-            "response": reply,     # Fallback for frontend variants looking for 'response'
+            "message": reply,
+            "response": reply,
             "turn": turn,
             "done": is_done,
             "evaluation": evaluation
@@ -107,7 +126,7 @@ async def interview_endpoint(req: InterviewRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# Catch-all routes to serve index.html regardless of how Vercel routes the URL
+# Catch-all routes to serve index.html across Vercel rewrites
 @app.get("/", response_class=HTMLResponse)
 @app.get("/api", response_class=HTMLResponse)
 @app.get("/api/index", response_class=HTMLResponse)
