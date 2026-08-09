@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from openai import OpenAI
 from dotenv import load_dotenv
 import redis
-
+from fastapi.responses import HTMLResponse
 from fastapi.responses import HTMLResponse
 import os
 
@@ -269,6 +269,11 @@ def handle_interview(payload: InterviewRequest):
     save_session(session_id, session_data)
     return InterviewResponse(reply=reply, done=False)
 
-@app.get("/")
-def health():
-    return {"status": "healthy", "service": "AI Interview Agent"}
+@app.get("/", response_class=HTMLResponse)
+def serve_ui():
+    html_path = os.path.join(os.path.dirname(__file__), "index.html")
+    try:
+        with open(html_path, "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return "<h1>Error: index.html not found!</h1>"
