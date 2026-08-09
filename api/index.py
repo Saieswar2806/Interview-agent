@@ -97,6 +97,8 @@ async def interview_endpoint(req: InterviewRequest):
         
         return JSONResponse({
             "reply": reply,
+            "message": reply,      # Fallback for frontend variants looking for 'message'
+            "response": reply,     # Fallback for frontend variants looking for 'response'
             "turn": turn,
             "done": is_done,
             "evaluation": evaluation
