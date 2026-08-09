@@ -1,16 +1,14 @@
 import os
 import json
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import redis
 from openai import OpenAI
 
-# Initialize FastAPI app
-app = FastAPI(title="AI Interview Agent - Cohort Evaluator")
+app = FastAPI(title="AI Interview Agent")
 
-# Enable CORS for local and production testing
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -19,14 +17,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize Groq / OpenAI-compatible client
-# Automatically looks for GROQ_API_KEY environment variable
 client = OpenAI(
     api_key=os.environ.get("GROQ_API_KEY"),
     base_url="https://api.groq.com/openai/v1"
 )
 
-# Initialize Redis (Upstash) with an in-memory fallback for offline/local testing
 REDIS_URL = os.environ.get("REDIS_URL")
 if REDIS_URL:
     try:
@@ -63,21 +58,18 @@ async def interview_endpoint(req: InterviewRequest):
         turn = state.get("turn", 0)
         history = state.get("history", [])
         
-        # Append user message
         history.append({"role": "user", "content": req.message})
         turn += 1
         
-        # System prompt instructions
         system_prompt = (
-            "You are an expert, objective technical interviewer conducting a mock interview for a software engineering cohort. "
-            "Ask sharp, probing questions based on the candidate's responses. "
-            "Enforce a strict 'one question per turn' rule. Keep your response concise (1-2 sentences) and direct.\n\n"
+            "You are an expert, objective technical interviewer conducting a mock interview. "
+            "Ask sharp, probing questions. Enforce a strict 'one question per turn' rule. "
+            "Keep your response concise (1-2 sentences).\n\n"
             f"Current Interview Turn: {turn} of 8."
         )
         
         messages = [{"role": "system", "content": system_prompt}] + history
         
-        # Call Groq (Llama-3.3-70b)
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=messages,
@@ -88,19 +80,17 @@ async def interview_endpoint(req: InterviewRequest):
         reply = response.choices[0].message.content
         history.append({"role": "assistant", "content": reply})
         
-        # Check if interview is complete (8 turns reached)
         is_done = turn >= 8
         evaluation = None
         
         if is_done:
             evaluation = {
-                "summary": "The candidate demonstrated solid fundamental knowledge with clear strengths in backend design, though some architectural edge cases require further study.",
-                "strengths": ["Strong grasp of API contracts and stateless design", "Clear and professional communication style"],
-                "gaps": ["Needs deeper exploration into serverless cold starts", "Could improve handling of distributed system failure states"],
-                "next": ["Complete advanced database optimization module", "Review system architecture patterns"]
+                "summary": "The candidate completed the technical evaluation with solid responses.",
+                "strengths": ["Clear communication", "Good technical intuition"],
+                "gaps": ["Some architectural patterns need refinement"],
+                "next": ["Review advanced backend modules"]
             }
 
-        # Save updated state
         state["turn"] = turn
         state["history"] = history
         save_session_state(session_id, state)
@@ -115,15 +105,15 @@ async def interview_endpoint(req: InterviewRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# Multi-path route decorators to reliably serve index.html across Vercel rewrites
+# Catch-all routes to serve index.html regardless of how Vercel routes the URL
 @app.get("/", response_class=HTMLResponse)
 @app.get("/api", response_class=HTMLResponse)
-@app.get("/api/", response_class=HTMLResponse)
 @app.get("/api/index", response_class=HTMLResponse)
+@app.get("/api/index.py", response_class=HTMLResponse)
 def serve_ui():
     html_path = os.path.join(os.path.dirname(__file__), "index.html")
     try:
         with open(html_path, "r", encoding="utf-8") as f:
             return f.read()
     except FileNotFoundError:
-        return "<h1>Error: index.html not found! Make sure it is inside the api/ folder.</h1>"
+        return "<h1>Error: index.html not found inside the api/ folder!</h1>"
